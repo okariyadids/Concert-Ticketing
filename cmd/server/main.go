@@ -27,9 +27,15 @@ func main() {
 		log.Fatalf("failed to connect to db: %v", err)
 	}
 
+	const workerCount = 50
+	const queueSize = 1000
+	db.SetMaxOpenConns(workerCount)
+	db.SetMaxIdleConns(workerCount)
+
 	repository := ticket.NewRepository(db)
 	service := ticket.NewService(repository)
-	handler := ticket.NewHandler(service)
+	queue := ticket.NewQueue(service, workerCount, queueSize)
+	handler := ticket.NewHandler(queue)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /tickets/{id}/purchase", handler.HandlePurchase)

@@ -7,13 +7,13 @@ import (
 	"strconv"
 )
 
-// Handler jadi jembatan antara HTTP request/response dan Service.
+// Handler jadi jembatan antara HTTP request/response dan Queue.
 type Handler struct {
-	service *Service
+	queue *Queue
 }
 
-func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(queue *Queue) *Handler {
+	return &Handler{queue: queue}
 }
 
 type purchaseRequest struct {
@@ -47,7 +47,7 @@ func (handler *Handler) HandlePurchase(responseWriter http.ResponseWriter, reque
 		return
 	}
 
-	transactionID, err := handler.service.Purchase(request.Context(), ticketID, req.BuyerName)
+	transactionID, err := handler.queue.Enqueue(request.Context(), ticketID, req.BuyerName)
 	if err != nil {
 		if errors.Is(err, ErrSoldOut) {
 			writeJSON(responseWriter, http.StatusConflict, errorResponse{Error: "ticket sold out"})
