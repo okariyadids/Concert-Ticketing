@@ -27,8 +27,8 @@ func main() {
 		log.Fatalf("failed to connect to db: %v", err)
 	}
 
-	repo := ticket.NewRepository(db)
-	service := ticket.NewService(repo)
+	repository := ticket.NewRepository(db)
+	service := ticket.NewService(repository)
 	handler := ticket.NewHandler(service)
 
 	mux := http.NewServeMux()

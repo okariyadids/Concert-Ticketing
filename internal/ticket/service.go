@@ -8,15 +8,15 @@ import (
 var ErrSoldOut = errors.New("ticket sold out")
 
 type Service struct {
-	repo *Repository
+	repository *Repository
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repository *Repository) *Service {
+	return &Service{repository: repository}
 }
 
-func (s *Service) Purchase(ctx context.Context, ticketID int64, buyerName string) (int64, error) {
-	ok, err := s.repo.DecreaseStock(ctx, ticketID)
+func (service *Service) Purchase(context context.Context, ticketID int64, buyerName string) (int64, error) {
+	ok, err := service.repository.DecreaseStock(context, ticketID)
 	if err != nil {
 		return 0, err
 	}
@@ -24,7 +24,7 @@ func (s *Service) Purchase(ctx context.Context, ticketID int64, buyerName string
 		return 0, ErrSoldOut
 	}
 
-	transactionID, err := s.repo.SaveTransaction(ctx, ticketID, buyerName)
+	transactionID, err := service.repository.SaveTransaction(context, ticketID, buyerName)
 	if err != nil {
 		return 0, err
 	}
