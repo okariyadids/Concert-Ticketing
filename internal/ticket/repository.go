@@ -5,48 +5,58 @@ import (
 	"database/sql"
 )
 
+type OutboxWriter interface {
+	InsertPending(context context.Context, transaction *sql.Tx, transactionID int64) error
+}
+
 type Repository struct {
-	db *sql.DB
+	database *sql.DB
+	outbox   OutboxWriter
 }
 
-func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+func NewRepository(database *sql.DB, outbox OutboxWriter) *Repository {
+	return &Repository{database: database, outbox: outbox}
 }
 
-func (repository *Repository) DecreaseStock(context context.Context, ticketID int64) (bool, error) {
-	result, err := repository.db.ExecContext(context,
+func (repository *Repository) Purchase(context context.Context, ticketID int64, buyerName string) (int64, error) {
+	transaction, err := repository.database.BeginTx(context, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer transaction.Rollback()
+
+	result, err := transaction.ExecContext(context,
 		`UPDATE tickets SET stock = stock - 1 WHERE id = $1 AND stock > 0`,
 		ticketID,
 	)
 	if err != nil {
-		return false, err
+		return 0, err
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return false, err
+		return 0, err
+	}
+	if rowsAffected == 0 {
+		return 0, ErrSoldOut
 	}
 
-	return rowsAffected == 1, nil
-}
-
-func (repository *Repository) SaveTransaction(context context.Context, ticketID int64, buyerName string) (int64, error) {
-	var id int64
-	err := repository.db.QueryRowContext(context,
+	var transactionID int64
+	err = transaction.QueryRowContext(context,
 		`INSERT INTO transactions (ticket_id, buyer_name, status) VALUES ($1, $2, 'success') RETURNING id`,
 		ticketID, buyerName,
-	).Scan(&id)
-	return id, err
-}
-
-func (repository *Repository) GetTicket(context context.Context, ticketID int64) (*Ticket, error) {
-	var t Ticket
-	err := repository.db.QueryRowContext(context,
-		`SELECT id, name, stock, price FROM tickets WHERE id = $1`,
-		ticketID,
-	).Scan(&t.ID, &t.Name, &t.Stock, &t.Price)
+	).Scan(&transactionID)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	return &t, nil
+
+	if err := repository.outbox.InsertPending(context, transaction, transactionID); err != nil {
+		return 0, err
+	}
+
+	if err := transaction.Commit(); err != nil {
+		return 0, err
+	}
+
+	return transactionID, nil
 }

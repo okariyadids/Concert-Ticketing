@@ -30,7 +30,7 @@ func TestHighTraffic_AllTransactionsSaved(t *testing.T) {
 	}
 	ticketIDStr := strconv.FormatInt(ticketID, 10)
 
-	service := NewService(NewRepository(database))
+	service := NewService(NewRepository(database, noopOutbox{}))
 	queue := NewQueue(service, 50, 1000)
 	handler := NewHandler(queue)
 
