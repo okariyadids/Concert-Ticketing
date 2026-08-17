@@ -7,13 +7,13 @@ import (
 	"strconv"
 )
 
-// Handler jadi jembatan antara HTTP request/response dan Service.
+// Handler jadi jembatan antara HTTP request/response dan Queue.
 type Handler struct {
-	service *Service
+	queue *Queue
 }
 
-func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(queue *Queue) *Handler {
+	return &Handler{queue: queue}
 }
 
 type purchaseRequest struct {
@@ -30,41 +30,41 @@ type errorResponse struct {
 }
 
 // HandlePurchase menangani POST /tickets/{id}/purchase
-func (h *Handler) HandlePurchase(w http.ResponseWriter, r *http.Request) {
-	ticketID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+func (handler *Handler) HandlePurchase(responseWriter http.ResponseWriter, request *http.Request) {
+	ticketID, err := strconv.ParseInt(request.PathValue("id"), 10, 64)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid ticket id"})
+		writeJSON(responseWriter, http.StatusBadRequest, errorResponse{Error: "invalid ticket id"})
 		return
 	}
 
 	var req purchaseRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
+	if err := json.NewDecoder(request.Body).Decode(&req); err != nil {
+		writeJSON(responseWriter, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
 	if req.BuyerName == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "buyer_name is required"})
+		writeJSON(responseWriter, http.StatusBadRequest, errorResponse{Error: "buyer_name is required"})
 		return
 	}
 
-	transactionID, err := h.service.Purchase(r.Context(), ticketID, req.BuyerName)
+	transactionID, err := handler.queue.Enqueue(request.Context(), ticketID, req.BuyerName)
 	if err != nil {
 		if errors.Is(err, ErrSoldOut) {
-			writeJSON(w, http.StatusConflict, errorResponse{Error: "ticket sold out"})
+			writeJSON(responseWriter, http.StatusConflict, errorResponse{Error: "ticket sold out"})
 			return
 		}
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "internal server error"})
+		writeJSON(responseWriter, http.StatusInternalServerError, errorResponse{Error: "internal server error"})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, purchaseResponse{
+	writeJSON(responseWriter, http.StatusOK, purchaseResponse{
 		TransactionID: transactionID,
 		Message:       "purchase success",
 	})
 }
 
-func writeJSON(w http.ResponseWriter, status int, body any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(body)
+func writeJSON(responseWriter http.ResponseWriter, status int, body any) {
+	responseWriter.Header().Set("Content-Type", "application/json")
+	responseWriter.WriteHeader(status)
+	json.NewEncoder(responseWriter).Encode(body)
 }

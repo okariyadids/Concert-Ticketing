@@ -18,4 +18,4 @@ curl -X POST http://localhost:8080/tickets/1/purchase -H "Content-Type: applicat
 
 Tes otomatis:
 
-go test ./... -v -run TestConcurrentPurchase
+go test ./... -v -run TestConcurrentPurchase -count=1
