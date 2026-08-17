@@ -7,6 +7,8 @@ import (
 	"os"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+
+	"github.com/okariyadids/concert-bnl/internal/ticket"
 )
 
 func main() {
@@ -24,12 +26,13 @@ func main() {
 	if err := db.Ping(); err != nil {
 		log.Fatalf("failed to connect to db: %v", err)
 	}
-	log.Println("connected to database")
 
-	// Belum ada route apa pun di sini -- ini scaffold awal sebelum
-	// Section 1-5 mulai dikerjain. Tiap section nanti nambahin
-	// package internal/<domain> sendiri + daftarin route-nya di sini.
+	repo := ticket.NewRepository(db)
+	service := ticket.NewService(repo)
+	handler := ticket.NewHandler(service)
+
 	mux := http.NewServeMux()
+	mux.HandleFunc("POST /tickets/{id}/purchase", handler.HandlePurchase)
 
 	log.Println("server listening on :8080")
 	if err := http.ListenAndServe(":8080", mux); err != nil {
