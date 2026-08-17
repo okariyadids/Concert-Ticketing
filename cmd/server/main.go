@@ -11,6 +11,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/okariyadids/concert-bnl/internal/accounting"
+	"github.com/okariyadids/concert-bnl/internal/payment"
 	"github.com/okariyadids/concert-bnl/internal/ticket"
 )
 
@@ -59,10 +60,13 @@ func main() {
 	repository := ticket.NewRepository(db, accountingRepository)
 	service := ticket.NewService(repository)
 	queue := ticket.NewQueue(service, workerCount, queueSize)
-	handler := ticket.NewHandler(queue)
+	ticketHandler := ticket.NewHandler(queue)
+
+	paymentHandler := payment.NewHandler(payment.NewRepository(db))
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /tickets/{id}/purchase", handler.HandlePurchase)
+	mux.HandleFunc("POST /tickets/{id}/purchase", ticketHandler.HandlePurchase)
+	mux.HandleFunc("POST /webhooks/payment", paymentHandler.HandleWebhook)
 
 	log.Println("server listening on :8080")
 	log.Printf("sending transactions to accounting service at %s", accountingURL)

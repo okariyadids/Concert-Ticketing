@@ -25,4 +25,13 @@ CREATE TABLE IF NOT EXISTS accounting_outbox (
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS transaction_payments (
+    id                  SERIAL PRIMARY KEY,
+    transaction_id      INT NOT NULL REFERENCES transactions(id),
+    external_payment_id VARCHAR(100) NOT NULL UNIQUE,
+    amount              NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    status              VARCHAR(20) NOT NULL DEFAULT 'paid',
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 INSERT INTO tickets (name, stock, price) VALUES ('VIP Concert Ticket', 1, 1500000);
