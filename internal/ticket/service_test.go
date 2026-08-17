@@ -13,6 +13,12 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
+type noopOutbox struct{}
+
+func (noopOutbox) InsertPending(context context.Context, transaction *sql.Tx, transactionID int64) error {
+	return nil
+}
+
 func setupTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 
@@ -45,7 +51,7 @@ func TestConcurrentPurchase_OnlyOneSucceeds(t *testing.T) {
 		t.Fatalf("failed to seed ticket: %v", err)
 	}
 
-	service := NewService(NewRepository(db))
+	service := NewService(NewRepository(db, noopOutbox{}))
 
 	const totalBuyers = 2
 	var successCount int64

@@ -14,4 +14,15 @@ CREATE TABLE IF NOT EXISTS transactions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS accounting_outbox (
+    id              SERIAL PRIMARY KEY,
+    transaction_id  INT NOT NULL REFERENCES transactions(id),
+    status          VARCHAR(20) NOT NULL DEFAULT 'pending',
+    attempt_count   INT NOT NULL DEFAULT 0,
+    next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_error      TEXT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 INSERT INTO tickets (name, stock, price) VALUES ('VIP Concert Ticket', 1, 1500000);
