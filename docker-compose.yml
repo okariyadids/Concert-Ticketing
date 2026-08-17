@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: concert-bnl-db
+    environment:
+      POSTGRES_USER: concert
+      POSTGRES_PASSWORD: concert
+      POSTGRES_DB: concert_bnl
+    ports:
+      # Host port 5433 (bukan 5432) biar gak bentrok kalau ada Postgres
+      # lain yang udah jalan native di host.
+      - "5433:5432"
+    volumes:
+      - concert_bnl_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U concert -d concert_bnl"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  concert_bnl_data:

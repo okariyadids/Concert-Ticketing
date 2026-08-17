@@ -1,0 +1,11 @@
+# Binary hasil build
+/bin/
+/concert-bnl
+*.exe
+
+# Env lokal
+.env
+
+# Editor
+.vscode/
+.idea/
