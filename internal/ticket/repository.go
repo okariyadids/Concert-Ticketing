@@ -26,7 +26,7 @@ func (repository *Repository) Purchase(context context.Context, ticketID int64, 
 	defer transaction.Rollback()
 
 	result, err := transaction.ExecContext(context,
-		`UPDATE tickets SET stock = stock - 1 WHERE id = $1 AND stock > 0`,
+		`UPDATE tickets SET stock = stock - 1, version = version + 1 WHERE id = $1 AND stock > 0`,
 		ticketID,
 	)
 	if err != nil {

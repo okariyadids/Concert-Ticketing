@@ -12,6 +12,7 @@ import (
 
 	"github.com/okariyadids/concert-bnl/internal/accounting"
 	"github.com/okariyadids/concert-bnl/internal/payment"
+	"github.com/okariyadids/concert-bnl/internal/stocksync"
 	"github.com/okariyadids/concert-bnl/internal/ticket"
 )
 
@@ -63,10 +64,12 @@ func main() {
 	ticketHandler := ticket.NewHandler(queue)
 
 	paymentHandler := payment.NewHandler(payment.NewRepository(db))
+	stockSyncHandler := stocksync.NewHandler(stocksync.NewRepository(db))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /tickets/{id}/purchase", ticketHandler.HandlePurchase)
 	mux.HandleFunc("POST /webhooks/payment", paymentHandler.HandleWebhook)
+	mux.HandleFunc("POST /sync/stock", stockSyncHandler.HandleSync)
 
 	log.Println("server listening on :8080")
 	log.Printf("sending transactions to accounting service at %s", accountingURL)
