@@ -1,12 +1,19 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+
+	"github.com/okariyadids/concert-bnl/internal/accounting"
+	"github.com/okariyadids/concert-bnl/internal/payment"
+	"github.com/okariyadids/concert-bnl/internal/stocksync"
+	"github.com/okariyadids/concert-bnl/internal/ticket"
 )
 
 func main() {
@@ -24,14 +31,48 @@ func main() {
 	if err := db.Ping(); err != nil {
 		log.Fatalf("failed to connect to db: %v", err)
 	}
-	log.Println("connected to database")
 
-	// Belum ada route apa pun di sini -- ini scaffold awal sebelum
-	// Section 1-5 mulai dikerjain. Tiap section nanti nambahin
-	// package internal/<domain> sendiri + daftarin route-nya di sini.
+	const workerCount = 50
+	const queueSize = 1000
+	db.SetMaxOpenConns(workerCount)
+	db.SetMaxIdleConns(workerCount)
+
+	accountingURL := os.Getenv("ACCOUNTING_API_URL")
+	if accountingURL == "" {
+		accountingURL = "http://localhost:9000"
+	}
+
+	accountingRepository := accounting.NewRepository(db)
+	accountingClient := accounting.NewClient(accountingURL, 5*time.Second)
+	accountingWorker := accounting.NewWorker(
+		accountingRepository,
+		accountingClient,
+		2*time.Second,
+		20,
+		5,
+		2*time.Second,
+		time.Minute,
+	)
+
+	accountingWorkerContext, cancelAccountingWorker := context.WithCancel(context.Background())
+	defer cancelAccountingWorker()
+	go accountingWorker.Start(accountingWorkerContext)
+
+	repository := ticket.NewRepository(db, accountingRepository)
+	service := ticket.NewService(repository)
+	queue := ticket.NewQueue(service, workerCount, queueSize)
+	ticketHandler := ticket.NewHandler(queue)
+
+	paymentHandler := payment.NewHandler(payment.NewRepository(db))
+	stockSyncHandler := stocksync.NewHandler(stocksync.NewRepository(db))
+
 	mux := http.NewServeMux()
+	mux.HandleFunc("POST /tickets/{id}/purchase", ticketHandler.HandlePurchase)
+	mux.HandleFunc("POST /webhooks/payment", paymentHandler.HandleWebhook)
+	mux.HandleFunc("POST /sync/stock", stockSyncHandler.HandleSync)
 
 	log.Println("server listening on :8080")
+	log.Printf("sending transactions to accounting service at %s", accountingURL)
 	if err := http.ListenAndServe(":8080", mux); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
